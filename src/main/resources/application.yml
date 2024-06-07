@@ -1,0 +1,43 @@
+spring:
+  application:
+    name: chatApp
+  config:
+    activate:
+      on-profile: dev
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQL8Dialect
+    hibernate:
+      ddl-auto: validate
+  datasource:
+    url: "jdbc:mysql://localhost:3307/chat_app"
+    username: "root"
+    password: "kimdh991234@"
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jwt:
+    secret: vmfhaltmskdlstkfkdgodyroqkfwkdbalroqkfwkdbarlaehdguscjswo
+
+---
+
+spring:
+  application:
+    name: chatApp
+  config:
+    activate:
+      on-profile: server
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibername.dialect.MYSQL8Dialect
+    hibernate:
+      ddl-auto: validate
+  datasource:
+    url: "jdbc:mysql://localhost/chat_app"
+    username: "root"
+    password: "Abcd1234!"
+    driver-class-name: com.mysql.cj.jdbc.Driver
