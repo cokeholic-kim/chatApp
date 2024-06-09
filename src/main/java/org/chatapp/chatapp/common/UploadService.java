@@ -14,8 +14,8 @@ import org.springframework.web.multipart.MultipartFile;
 public class UploadService {
 
     //외부폴더
-    public static String UPLOAD_PATH = "file:///C:/Users/kimad/Desktop/JavaPortpolio/coctail_library_imgs/";
-    private String uploadPath = "C:/Users/kimad/Desktop/JavaPortpolio/coctail_library_imgs/";
+    public static String UPLOAD_PATH = "file:///C:/Users/kimad/Desktop/JavaPortpolio/chatApp/chat_app_imgs/";
+    private String uploadPath = "C:/Users/kimad/Desktop/JavaPortpolio/chatApp/chat_app_imgs/";
 
     public static String createFileName(MultipartFile file){
         return UUID.randomUUID() + "_" + file.getOriginalFilename();
