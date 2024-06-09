@@ -1,6 +1,9 @@
 package org.chatapp.chatapp.common.exception;
 
+import lombok.Getter;
 import org.chatapp.chatapp.common.error.ErrorCodeIfs;
+
+@Getter
 public class ApiException extends RuntimeException implements ApiExceptionIfs {
 
     private final ErrorCodeIfs errorCodeIfs;
