@@ -2,7 +2,6 @@ package org.chatapp.chatapp.db.chatroomusers;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
-import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Data;
