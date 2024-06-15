@@ -8,7 +8,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +22,7 @@ import org.chatapp.chatapp.db.offlinechathistory.OfflineChatHistoryEntity;
 import org.chatapp.chatapp.db.offlinechathistory.OfflineChatHistoryRepository;
 import org.chatapp.chatapp.db.user.UserEntity;
 import org.chatapp.chatapp.db.user.UserRepository;
+import org.chatapp.chatapp.jwt.JwtUtil;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.socket.CloseStatus;
@@ -38,6 +38,7 @@ public class SocketTextHandler extends TextWebSocketHandler {
     private final ChatRoomRepository roomRepository;
     private final ChatRoomUsersRepository chatRoomUsersRepository;
     private final OfflineChatHistoryRepository offlineChatHistoryRepository;
+    private final JwtUtil jwtUtil;
 
     private final Map<String, WebSocketSession> userSessionMap = new ConcurrentHashMap<>();
 
@@ -56,28 +57,31 @@ public class SocketTextHandler extends TextWebSocketHandler {
             // room 이 없는경우 수신자 이메일값이 필수.
             // 해당 이메일정보로 수신자를 조회
             List<UserEntity> receivers = chatMessageDto.getReceiverEmail().stream().map(receiver ->
-                            userRepository.findByEmail(receiver)
-                                    .orElseThrow(() -> new ApiException(ErrorCode.BAD_REQUEST, receiver + " 는 없는 유저입니다."))
-                                    ).toList();
+                    userRepository.findByEmail(receiver)
+                            .orElseThrow(() -> new ApiException(ErrorCode.BAD_REQUEST, receiver + " 는 없는 유저입니다."))
+            ).toList();
 
             // 2. 송신자와 수신자를 해당 방에 가입.
             List<UserEntity> allUser = new ArrayList<>(receivers);
             allUser.add(senderUser);
+
+            ChatRoom room = new ChatRoom();
+
             List<ChatRoomUsersEntity> chatRoomUsersList = allUser.stream()
                     .map(user -> ChatRoomUsersEntity.builder()
                             .userId(user.getId())
                             .joinedAt(LocalDateTime.now())
+                            .chatRoom(room)
                             .build())
                     .collect(Collectors.toList());
 
-            ChatRoom room = ChatRoom.builder()
-                    .name(senderUser.getEmail() + "to" + chatMessageDto.getReceiverEmail() )
-                    .createdAt(LocalDateTime.now())
-                    .chatRoomUsers(chatRoomUsersList)
-                    .build();
+            room.setChatRoomUsers(chatRoomUsersList);
+            room.setName(senderUser.getEmail() + "to" + chatMessageDto.getReceiverEmail());
+            room.setCreatedAt(LocalDateTime.now());
+
             roomRepository.save(room);
 
-            sendMessageAndkeep(receivers,chatMessageDto,senderUser);
+            sendMessageAndkeep(receivers, chatMessageDto, senderUser);
         } else {
             // room 이 있는경우 .
             // room에 등록된 유저를 조회
@@ -93,7 +97,7 @@ public class SocketTextHandler extends TextWebSocketHandler {
                                 .orElseThrow(() -> new ApiException(ErrorCode.BAD_REQUEST, "없는 유저입니다."));
                     }).toList();
 
-            sendMessageAndkeep(rooUserList,chatMessageDto,senderUser);
+            sendMessageAndkeep(rooUserList, chatMessageDto, senderUser);
         }
 
         // 수신자에게 메시지 전송
@@ -104,6 +108,7 @@ public class SocketTextHandler extends TextWebSocketHandler {
     @Transactional
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         //유저의 이메일을 얻어온다.
+
         String userId = getUserId(session);
         UserEntity userEntity = userRepository.findByEmail(userId)
                 .orElseThrow(() -> new ApiException(ErrorCode.BAD_REQUEST, "없는 유저입니다."));
@@ -125,6 +130,7 @@ public class SocketTextHandler extends TextWebSocketHandler {
 
         //유저의 이메일과 세션을 매핑해서 서버에서 관리.
         userSessionMap.put(userId, session);
+        log.info("{} 환영합니다", userId);
     }
 
     @Override
@@ -137,27 +143,24 @@ public class SocketTextHandler extends TextWebSocketHandler {
 
     private String getUserId(WebSocketSession session) {
         return
-                session.getAttributes()
-                        .get("userId")
-                        .toString();
+                jwtUtil.getUsername(
+                        Objects.requireNonNull(session.getHandshakeHeaders().get("Authorization")).get(0)
+                                .split(" ")[1]);
     }
 
-    private UserEntity getUserEntity(WebSocketSession session){
+    private UserEntity getUserEntity(WebSocketSession session) {
         return userRepository.findByEmail(getUserId(session))
                 .orElseThrow(() -> new ApiException(ErrorCode.BAD_REQUEST));
     }
 
-    private  ChatMessageDto getMessageDto(TextMessage message) throws JsonProcessingException {
-       return mapper.readValue(message.getPayload(), ChatMessageDto.class);
+    private ChatMessageDto getMessageDto(TextMessage message) throws JsonProcessingException {
+        return mapper.readValue(message.getPayload(), ChatMessageDto.class);
     }
 
-    private void sendMessageToChatRoom(ChatMessageDto chatMessageDto, Set<WebSocketSession> chatRoomSession) {
-        chatRoomSession.parallelStream().forEach(sess -> sendMessage(sess, chatMessageDto));//2
-    }
-
-    private void sendMessageAndkeep(List<UserEntity> userEntities,ChatMessageDto chatMessageDto,UserEntity sender){
+    private void sendMessageAndkeep(List<UserEntity> userEntities, ChatMessageDto chatMessageDto, UserEntity sender) {
         //연결중인 세션만 찾아서 문자를전송
-        getOnlineSession(userEntities).forEach(receiverSession -> sendMessage(receiverSession, chatMessageDto.getMessage()));
+        getOnlineSession(userEntities).forEach(
+                receiverSession -> sendMessage(receiverSession, chatMessageDto.getMessage()));
 
         //연결중이지않은 유저는 해당 기록을 저장.
         saveOfflineChat(userEntities, chatMessageDto, sender);
@@ -165,7 +168,7 @@ public class SocketTextHandler extends TextWebSocketHandler {
 
     private void saveOfflineChat(List<UserEntity> userEntities, ChatMessageDto chatMessageDto, UserEntity sender) {
         List<UserEntity> offlineReceivers = userEntities.stream()
-                .filter( receiver -> userSessionMap.get(receiver.getEmail()) == null)
+                .filter(receiver -> userSessionMap.get(receiver.getEmail()) == null)
                 .toList();
 
         offlineReceivers.forEach(offlineUser -> {
@@ -179,7 +182,7 @@ public class SocketTextHandler extends TextWebSocketHandler {
         });
     }
 
-    private List<WebSocketSession> getOnlineSession(List<UserEntity> userEntities){
+    private List<WebSocketSession> getOnlineSession(List<UserEntity> userEntities) {
         return userEntities.stream()
                 .map(receiver -> userSessionMap.get(receiver.getEmail()))
                 .filter(Objects::nonNull)
