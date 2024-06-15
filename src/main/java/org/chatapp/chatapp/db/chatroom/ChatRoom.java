@@ -1,5 +1,6 @@
 package org.chatapp.chatapp.db.chatroom;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
@@ -28,7 +29,7 @@ public class ChatRoom extends BaseEntity {
     private String name;
     private LocalDateTime createdAt;
 
-    @OneToMany(mappedBy = "chatRoomId")
+    @OneToMany(mappedBy = "chatRoom",cascade = CascadeType.ALL)
     private List<ChatRoomUsersEntity> chatRoomUsers;
 }
 
