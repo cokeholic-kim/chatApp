@@ -13,9 +13,9 @@ public class ChattingHandshakingInterceptor implements HandshakeInterceptor {
     @Override
     public boolean beforeHandshake(ServerHttpRequest request, ServerHttpResponse response, WebSocketHandler wsHandler,
                                    Map<String, Object> attributes) throws Exception {
-        String path = request.getURI().getPath();
-        String userId = path.substring(path.lastIndexOf('/') + 1);
-        attributes.put("userId", userId);
+//        String path = request.getURI().getPath();
+//        String userId = path.substring(path.lastIndexOf('/') + 1);
+//        attributes.put("userId", userId);
         return true;
     }
 
